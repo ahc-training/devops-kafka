@@ -1,0 +1,6 @@
+Dockerfile
+.dockerignore
+devops
+*.pdf
+*.md
+entrypoint_*.sh

@@ -1,0 +1,62 @@
+pipeline {
+    agent {
+        kubernetes {
+            inheritFrom 'docker-image-pod'
+            defaultContainer 'buildkit'
+            yaml """
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                  label:
+                    jenkins: docker-image-pod
+                spec:
+                  containers:
+                    - name: buildkit
+                      image: moby/buildkit:master
+                      tty: true
+                      securityContext:
+                        privileged: true
+                      volumeMounts:
+                        - name: docker-config
+                          mountPath: '/root/.docker'
+                  volumes:
+                    - name: docker-config
+                      secret:
+                        secretName: 'docker-config'
+                  restartPolicy: Never
+            """
+        }
+    }
+
+    parameters {
+      string(
+        name: 'registry',
+        defaultValue: 'registry.example.com:5000',
+        description: 'Container Registry'
+      )
+      string(
+        name: 'image_name',
+        defaultValue: 'custom-kafka',
+        description: 'Image Name'
+      )
+      string(
+        name: 'kafka_version',
+        defaultValue: '3.6.1',
+        description: 'Apache Kafka version'
+      )
+    }
+    
+    stages {
+        stage('Build & push image') {
+            steps {
+                container('buildkit') {
+                    sh """
+                        buildctl build --frontend dockerfile.v0 --local context=. --no-cache --opt build-arg:KAFKA_VERSION_NR=${params.kafka_version} --local dockerfile=. --output type=image,\\"name=${params.registry}/${params.image_name}:${params.kafka_version},${params.registry}/${params.image_name}:latest\\",push=true
+                    """
+                 }
+            }
+        }
+    }
+}
+
+
